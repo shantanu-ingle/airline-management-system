@@ -34,16 +34,16 @@ pipeline {
 
                       echo Starting deployment at %DATE% && time /t
 
-                      echo Testing SSH connection...
-                      C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i \"%SSH_KEY%\" %SSH_USER%@54.159.204.82 \"echo Connected\" || (echo SSH connection failed && exit /b 1)
+                      echo Testing SSH...
+                      C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i \"%SSH_KEY%\" %SSH_USER%@54.159.204.82 \"echo Connected\" || (echo SSH failed && exit /b 1)
 
-                      echo Copying JAR file...
-                      C:\\Windows\\System32\\OpenSSH\\scp.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i \"%SSH_KEY%\" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@54.159.204.82:/home/ec2-user/
+                      echo Copying JAR...
+                      C:\\Windows\\System32\\OpenSSH\\scp.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i \"%SSH_KEY%\" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@54.159.204.82:/home/%SSH_USER%/
 
-                      echo Deploying application...
-                      C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i \"%SSH_KEY%\" %SSH_USER%@54.159.204.82 \"if ! command -v java > /dev/null 2>&1; then sudo apt-get update -qy && sudo apt-get install -qy openjdk-21-jdk; fi; pkill -f 'java -jar' || true; sleep 5; nohup java -jar /home/ec2-user/airline-0.0.1-SNAPSHOT.jar --server.port=8081 > /home/ec2-user/app.log 2>&1 & sleep 20; cat /home/ec2-user/app.log; curl -sSf --retry 3 --retry-delay 10 http://localhost:8081/flights || (echo 'App failed to start' && exit 1)\"
+                      echo Deploying app...
+                      C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i \"%SSH_KEY%\" %SSH_USER%@54.159.204.82 \"if ! command -v java > /dev/null 2>&1; then sudo apt-get update -qy && sudo apt-get install -qy openjdk-21-jdk; fi; pkill -f 'java -jar' || true; sleep 5; nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 > /home/%SSH_USER%/app.log 2>&1 & sleep 30; echo 'Checking app...'; netstat -tuln | grep 8081; curl -sSf --retry 3 --retry-delay 10 http://localhost:8081/flights || (echo 'App failed' && cat /home/%SSH_USER%/app.log && exit 1)\"
 
-                      echo Deployment finished at %DATE% && time /t
+                      echo Done at %DATE% && time /t
                   """
               }
           }
