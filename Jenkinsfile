@@ -27,7 +27,8 @@ pipeline {
 
       stage('Deploy') {
           steps {
-              withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+              withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER'),
+                               usernamePassword(credentialsId: 'db-creds', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASS')]) {
                   bat """
                       icacls \"%SSH_KEY%\" /inheritance:r
                       icacls \"%SSH_KEY%\" /grant:r \"%USERNAME%:F\"
@@ -41,7 +42,13 @@ pipeline {
                       C:\\Windows\\System32\\OpenSSH\\scp.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i \"%SSH_KEY%\" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@54.159.204.82:/home/%SSH_USER%/
 
                       echo Deploying app...
-                      C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i \"%SSH_KEY%\" %SSH_USER%@54.159.204.82 \"if ! command -v java > /dev/null 2>&1; then sudo apt-get update -qy && sudo apt-get install -qy openjdk-21-jdk; fi; pkill -f 'java -jar' || true; sleep 5; nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 > /home/%SSH_USER%/app.log 2>&1 & sleep 30; echo 'Checking app...'; netstat -tuln | grep 8081; curl -sSf --retry 3 --retry-delay 10 http://localhost:8081/flights || (echo 'App failed' && cat /home/%SSH_USER%/app.log && exit 1)\"
+                      C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i \"%SSH_KEY%\" %SSH_USER%@54.159.204.82 \"if ! command -v java > /dev/null 2>&1; then sudo apt-get update -qy && sudo apt-get install -qy openjdk-21-jdk; fi; pkill -f 'java -jar' || true; sleep 5; nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 > /home/%SSH_USER%/app.log 2>&1 & sleep 30;\"
+
+                      echo Inserting test data...
+                      C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i \"%SSH_KEY%\" %SSH_USER%@54.159.204.82 \"mysql -h localhost -u %DB_USER% -p%DB_PASS% your_database_name < /home/%SSH_USER%/test_data.sql\"
+
+                      echo Verifying app...
+                      C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i \"%SSH_KEY%\" %SSH_USER%@54.159.204.82 \"curl -sSf --retry 3 --retry-delay 10 http://localhost:8081/flights || (echo 'App failed' && cat /home/%SSH_USER%/app.log && exit 1)\"
 
                       echo Done at %DATE% && time /t
                   """
