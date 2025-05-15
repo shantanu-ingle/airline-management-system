@@ -52,25 +52,25 @@ pipeline {
                     retry(5) {
                         timeout(time: 3, unit: 'MINUTES') {
                             bat """
-                            echo "Waiting for application to be fully ready..."
+                            echo Waiting for application to be fully ready...
                             ping 127.0.0.1 -n 60 > nul
 
-                            echo "Testing base endpoint..."
+                            echo Testing base endpoint...
                             curl -v --retry 5 --retry-delay 10 --max-time 30 http://54.159.204.82:8081/actuator/health
 
-                            echo "Validating GET /flights?sort=asc..."
+                            echo Validating GET /flights?sort=asc...
                             curl -v --retry 5 --retry-delay 10 --max-time 30 "http://54.159.204.82:8081/flights?sort=asc"
 
-                            echo "Validating GET /flights/{id}..."
+                            echo Validating GET /flights/{id}...
                             curl -v --retry 5 --retry-delay 10 --max-time 30 http://54.159.204.82:8081/flights/1
 
-                            echo "Creating test data for subsequent operations..."
+                            echo Creating test data for subsequent operations...
                             curl -v --retry 5 --retry-delay 10 --max-time 30 -X POST -H "Content-Type: application/json" -d "{\\"flightId\\":1,\\"passengerName\\":\\"John Doe\\",\\"seatNumber\\":\\"12A\\"}" http://54.159.204.82:8081/tickets
 
-                            echo "Validating GET /tickets/{id}..."
+                            echo Validating GET /tickets/{id}...
                             curl -v --retry 5 --retry-delay 10 --max-time 30 http://54.159.204.82:8081/tickets/1
 
-                            echo "Validating DELETE /tickets/{id}..."
+                            echo Validating DELETE /tickets/{id}...
                             curl -v --retry 5 --retry-delay 10 --max-time 30 -X DELETE http://54.159.204.82:8081/tickets/1
                             """
                         }
