@@ -32,18 +32,25 @@ pipeline {
                         icacls "%SSH_KEY%" /inheritance:r
                         icacls "%SSH_KEY%" /grant:r "%USERNAME%:F"
 
-                        echo Starting deployment at %DATE% && time /t
+                        scp -i "%SSH_KEY%" target/airline-0.0.1-SNAPSHOT.jar %SSH_USER%@54.159.204.82:/home/%SSH_USER%/
 
-                        echo Testing SSH connection...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@54.159.204.82 "echo Connected" || (echo SSH connection failed && exit /b 1)
+                        ssh -i "%SSH_KEY%" %SSH_USER%@54.159.204.82 "
+                            pkill -f 'java -jar' || true
+                            sleep 5
+                            export SPRING_PROFILES_ACTIVE=production
+                            nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar \
+                                --server.port=8081 \
+                                --server.address=0.0.0.0 \
+                                > /home/%SSH_USER%/app.log 2>&1 &
+                            echo \$! > /home/%SSH_USER%/app.pid
+                            sleep 30
+                            cat /home/%SSH_USER%/app.log
+                            curl -sSf http://localhost:8081/actuator/health || (echo 'Startup failed' && exit 1)
+                        "
 
-                        echo Copying JAR file...
-                        C:\\Windows\\System32\\OpenSSH\\scp.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@54.159.204.82:/home/%SSH_USER%/
-
-                        echo Deploying application...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@54.159.204.82 "if ! command -v java > /dev/null 2>&1; then sudo yum update -y && sudo yum install -y java-11-openjdk; fi; pkill -f 'java -jar' || true; sleep 5; nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 --server.address=0.0.0.0 > /home/%SSH_USER%/app.log 2>&1 & sleep 45; echo 'Checking app...'; netstat -tuln | grep 8081; curl -sSf --retry 3 --retry-delay 10 http://localhost:8081/flights || (echo 'App failed to start' && cat /home/%SSH_USER%/app.log && exit 1)"
-
-                        echo Deployment finished at %DATE% && time /t
+                        # Verification commands
+                        ssh -i "%SSH_KEY%" %SSH_USER%@54.159.204.82 "ps aux | grep java"
+                        ssh -i "%SSH_KEY%" %SSH_USER%@54.159.204.82 "sudo netstat -tulnp | grep 8081"
                     """
                 }
             }
