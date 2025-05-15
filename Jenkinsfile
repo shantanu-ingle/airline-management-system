@@ -38,7 +38,7 @@ pipeline {
                         C:\\Windows\\System32\\OpenSSH\\scp.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@54.159.204.82:/home/%SSH_USER%/
 
                         echo Deploying application...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@54.159.204.82 "pkill -f 'java -jar' || true && sleep 5 && export SPRING_PROFILES_ACTIVE=production && nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 --server.address=0.0.0.0 > /home/%SSH_USER%/app.log 2>&1 & sleep 30 && cat /home/%SSH_USER%/app.log && curl -sSf http://localhost:8081/actuator/health || (echo 'Startup failed' && exit 1)"
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@54.159.204.82 "pkill -f 'java -jar' || true && sleep 5 && export SPRING_PROFILES_ACTIVE=production && nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 --server.address=0.0.0.0 > /home/%SSH_USER%/app.log 2>&1 & sleep 60 && cat /home/%SSH_USER%/app.log && for i in {1..5}; do curl -sSf http://localhost:8081/actuator/health && break || sleep 10; done || (echo 'Startup failed' && exit 1)"
 
                         echo Deployment finished at %DATE% && time /t
                     """
