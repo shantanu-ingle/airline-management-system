@@ -35,10 +35,10 @@ pipeline {
                         echo Starting deployment at %DATE% && time /t
 
                         echo Copying JAR file...
-                        C:\\Windows\\System32\\OpenSSH\\scp.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@54.159.204.82:/home/%SSH_USER%/
+                        C:\\Windows\\System32\\OpenSSH\\scp.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@13.220.119.113:/home/%SSH_USER%/
 
                         echo Deploying application...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@54.159.204.82 "pkill -f 'java -jar' || true && sleep 5 && export SPRING_PROFILES_ACTIVE=production && nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 --server.address=0.0.0.0 > /home/%SSH_USER%/app.log 2>&1 & sleep 60 && cat /home/%SSH_USER%/app.log && for i in {1..5}; do curl -sSf http://localhost:8081/actuator/health && break || sleep 10; done || (echo 'Startup failed' && exit 1)"
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "if ! command -v java > /dev/null 2>&1; then sudo yum update -y && sudo yum install -y java-17-openjdk; fi; pkill -f 'java -jar' || true && sleep 5 && export SPRING_PROFILES_ACTIVE=production && nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 --server.address=0.0.0.0 > /home/%SSH_USER%/airline.log 2>&1 & sleep 60 && for i in {1..5}; do curl -sSf http://localhost:8081/actuator/health | grep 'UP' && break || sleep 10; done || (echo 'Startup failed' && cat /home/%SSH_USER%/airline.log && exit 1); cat /home/%SSH_USER%/airline.log"
 
                         echo Deployment finished at %DATE% && time /t
                     """
@@ -56,22 +56,22 @@ pipeline {
                             ping 127.0.0.1 -n 60 > nul
 
                             echo Testing base endpoint...
-                            curl -v --retry 5 --retry-delay 10 --max-time 30 http://54.159.204.82:8081/actuator/health
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 http://13.220.119.113:8081/actuator/health | findstr "UP"
 
                             echo Validating GET /flights?sort=asc...
-                            curl -v --retry 5 --retry-delay 10 --max-time 30 "http://54.159.204.82:8081/flights?sort=asc"
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 "http://13.220.119.113:8081/flights?sort=asc"
 
                             echo Validating GET /flights/{id}...
-                            curl -v --retry 5 --retry-delay 10 --max-time 30 http://54.159.204.82:8081/flights/1
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 http://13.220.119.113:8081/flights/1
 
                             echo Creating test data for subsequent operations...
-                            curl -v --retry 5 --retry-delay 10 --max-time 30 -X POST -H "Content-Type: application/json" -d "{\\"flightId\\":1,\\"passengerName\\":\\"John Doe\\",\\"seatNumber\\":\\"12A\\"}" http://54.159.204.82:8081/tickets
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 -X POST -H "Content-Type: application/json" -d "{\\"flightId\\":1,\\"passengerName\\":\\"John Doe\\",\\"seatNumber\\":\\"12A\\"}" http://13.220.119.113:8081/tickets
 
                             echo Validating GET /tickets/{id}...
-                            curl -v --retry 5 --retry-delay 10 --max-time 30 http://54.159.204.82:8081/tickets/1
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 http://13.220.119.113:8081/tickets/1
 
                             echo Validating DELETE /tickets/{id}...
-                            curl -v --retry 5 --retry-delay 10 --max-time 30 -X DELETE http://54.159.204.82:8081/tickets/1
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 -X DELETE http://13.220.119.113:8081/tickets/1
                             """
                         }
                     }
@@ -88,7 +88,7 @@ pipeline {
         failure {
             withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                 bat """
-                ssh -i "%SSH_KEY%" %SSH_USER%@54.159.204.82 "cat /home/%SSH_USER%/app.log" > deployment.log
+                ssh -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "cat /home/%SSH_USER%/airline.log" > deployment.log
                 """
             }
             archiveArtifacts artifacts: 'deployment.log', allowEmptyArchive: true
