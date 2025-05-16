@@ -39,7 +39,7 @@ pipeline {
 
                         echo Deploying application...
                         C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 ^
-                            "sudo yum install -y java-21-amazon-corretto && ^
+                            "if ! command -v java > /dev/null 2>&1; then sudo yum update -y && sudo yum install -y java-17-openjdk; fi && ^
                             pkill -f 'java -jar' || true && ^
                             sleep 5 && ^
                             chmod +x /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar && ^
@@ -47,6 +47,8 @@ pipeline {
                             sleep 15 && ^
                             for i in {1..5}; do curl -sSf http://localhost:8081/actuator/health && break || sleep 10; done || (echo 'Startup failed' && cat /home/%SSH_USER%/airline.log && exit 1) && ^
                             cat /home/%SSH_USER%/airline.log"
+
+                        echo Deployment finished at %DATE% && time /t
                     """
                 }
             }
