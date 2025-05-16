@@ -34,19 +34,20 @@ pipeline {
 
                         scp -i "%SSH_KEY%" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@13.220.119.113:/home/%SSH_USER%/
 
-                        ssh -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 ^
-                            "sudo yum install -y java-21-amazon-corretto-devel || (sudo amazon-linux-extras enable corretto8 && sudo yum install -y java-21-amazon-corretto) ^&^& ^
-                            pkill -f 'java -jar' || true ^&^& ^
-                            sleep 5 ^&^& ^
-                            chmod +x /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar ^&^& ^
-                            nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 --server.address=0.0.0.0 >> /home/%SSH_USER%/airline.log 2^>^&1 ^& ^
-                            sleep 15 ^&^& ^
-                            for i in 1 2 3 4 5; do ^
-                                curl -sSf http://localhost:8081/actuator/health ^&^& break ^
-                                || (sleep 10 ^&^& false) ^
-                            done ^
-                            || (echo 'Startup failed' ^&^& cat /home/%SSH_USER%/airline.log ^&^& exit 1) ^&^& ^
-                            cat /home/%SSH_USER%/airline.log"
+                        ssh -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "
+                            sudo amazon-linux-extras enable corretto8
+                            sudo yum install -y java-21-amazon-corretto
+                            pkill -f 'java -jar' || true
+                            sleep 5
+                            chmod +x /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar
+                            nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 --server.address=0.0.0.0 >> /home/%SSH_USER%/airline.log 2>&1 &
+                            sleep 15
+                            for i in 1 2 3 4 5; do
+                                curl -sSf http://localhost:8081/actuator/health && break
+                                sleep 10
+                            done || { echo 'Startup failed'; cat /home/%SSH_USER%/airline.log; exit 1; }
+                            cat /home/%SSH_USER%/airline.log
+                        "
                     """
                 }
             }
@@ -58,10 +59,7 @@ pipeline {
                     retry(5) {
                         timeout(time: 3, unit: 'MINUTES') {
                             bat """
-                            echo Waiting for application initialization...
                             ping 127.0.0.1 -n 90 > nul
-
-                            echo Testing connectivity...
                             curl -v --retry 5 --retry-delay 10 --max-time 30 http://13.220.119.113:8081/actuator/health
                             """
                         }
