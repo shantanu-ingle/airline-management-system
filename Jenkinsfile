@@ -35,7 +35,13 @@ pipeline {
                         echo Starting deployment at %DATE% && time /t
 
                         echo Copying JAR file...
-                        C:\\Windows\\System32\\OpenSSH\\scp.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@13.220.119.113:/home/%SSH_USER%/
+                        C:\\Windows\\System32\\OpenSSH\\scp.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@13.220.119.113:/home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar.new
+
+                        echo Verifying JAR upload...
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "ls -lh /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar.new || (echo 'JAR upload failed' && exit 1)"
+
+                        echo Renaming JAR file...
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "mv /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar.new /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar"
 
                         echo Installing Java...
                         C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "if ! command -v java >/dev/null 2>&1; then sudo yum update -y && sudo yum install -y java-17-openjdk; fi"
@@ -53,7 +59,7 @@ pipeline {
                         C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 --server.address=0.0.0.0 >> /home/%SSH_USER%/airline.log 2>&1 &"
 
                         echo Waiting for application to start...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sleep 30"
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sleep 60"
 
                         echo Checking application logs...
                         C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "cat /home/%SSH_USER%/airline.log"
