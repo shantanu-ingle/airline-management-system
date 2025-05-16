@@ -53,13 +53,13 @@ pipeline {
                         C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 --server.address=0.0.0.0 >> /home/%SSH_USER%/airline.log 2>&1 &"
 
                         echo Waiting for application to start...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sleep 15"
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sleep 30"
 
                         echo Checking application logs...
                         C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "cat /home/%SSH_USER%/airline.log"
 
                         echo Verifying application health...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "for i in {1..5}; do curl -sSf http://localhost:8081/actuator/health && break || sleep 10; done || (echo 'Startup failed' && cat /home/%SSH_USER%/airline.log && exit 1)"
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "for i in {1..5}; do curl -sSf http://localhost:8081/actuator/health | grep 'UP' && break || sleep 10; done || (echo 'Startup failed' && tail -n 100 /home/%SSH_USER%/airline.log && exit 1)"
 
                         echo Deployment finished at %DATE% && time /t
                     """
@@ -77,7 +77,22 @@ pipeline {
                             ping 127.0.0.1 -n 90 > nul
 
                             echo Testing connectivity...
-                            curl -v --retry 5 --retry-delay 10 --max-time 30 http://13.220.119.113:8081/actuator/health
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 http://13.220.119.113:8081/actuator/health | findstr "UP"
+
+                            echo Validating GET /flights?sort=asc...
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 "http://13.220.119.113:8081/flights?sort=asc"
+
+                            echo Validating GET /flights/{id}...
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 http://13.220.119.113:8081/flights/1
+
+                            echo Creating test data for subsequent operations...
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 -X POST -H "Content-Type: application/json" -d "{\\"flightId\\":1,\\"passengerName\\":\\"John Doe\\",\\"seatNumber\\":\\"12A\\"}" http://13.220.119.113:8081/tickets
+
+                            echo Validating GET /tickets/{id}...
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 http://13.220.119.113:8081/tickets/1
+
+                            echo Validating DELETE /tickets/{id}...
+                            curl -v --retry 5 --retry-delay 10 --max-time 30 -X DELETE http://13.220.119.113:8081/tickets/1
                             """
                         }
                     }
