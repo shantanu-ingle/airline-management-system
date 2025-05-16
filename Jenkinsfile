@@ -30,52 +30,27 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                     bat """
                         icacls "%SSH_KEY%" /inheritance:r
-                        icacls "%SSH_KEY%" /remove:g "BUILTIN\\Users"
-                        icacls "%SSH_KEY%" /grant:r "jenkinsuser:F"
+                        icacls "%SSH_KEY%" /grant:r "%USERNAME%:F"
 
                         echo Starting deployment at %DATE% && time /t
 
-                        echo Copying JAR file to temporary location...
-                        C:\\Windows\\System32\\OpenSSH\\scp.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@13.220.119.113:/home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar.new
+                        echo Copying JAR file...
+                        C:\\Windows\\System32\\OpenSSH\\scp.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" target\\airline-0.0.1-SNAPSHOT.jar %SSH_USER%@13.220.119.113:/home/%SSH_USER%/
 
-                        echo Verifying JAR upload...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "ls -lh /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar.new || (echo 'JAR upload failed' && exit 1)"
+                        echo Installing Java 21...
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sudo amazon-linux-extras enable corretto8 && sudo yum install -y java-21-amazon-corretto"
 
-                        echo Installing Java...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "if ! command -v java >/dev/null 2>&1; then sudo yum update -y && sudo yum install -y java-17-openjdk; fi"
+                        echo Killing existing processes...
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sudo pkill -f 'java -jar' || true; sudo lsof -ti :8081 | xargs -r sudo kill -9 || true"
 
-                        echo Checking for processes on port 8081...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sudo lsof -i :8081 || true"
+                        echo Waiting for cleanup...
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sleep 10"
 
-                        echo Killing any process using port 8081...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sudo lsof -i :8081 -t | xargs -r sudo kill -9 || true"
-
-                        echo Stopping any running Java processes...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "pkill -f 'java -jar' || true"
-
-                        echo Waiting for processes to terminate...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sleep 5"
-
-                        echo Verifying port 8081 is free...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sudo lsof -i :8081 && (echo 'Port 8081 still in use' && exit 1) || true"
-
-                        echo Renaming JAR file...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "mv /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar.new /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar"
-
-                        echo Setting executable permissions...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "chmod +x /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar"
-
-                        echo Starting the application...
+                        echo Starting application...
                         C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "nohup java -jar /home/%SSH_USER%/airline-0.0.1-SNAPSHOT.jar --server.port=8081 --server.address=0.0.0.0 >> /home/%SSH_USER%/airline.log 2>&1 &"
 
-                        echo Waiting for application to start...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "sleep 60"
-
-                        echo Checking application logs...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "tail -n 100 /home/%SSH_USER%/airline.log"
-
                         echo Verifying application health...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "for i in {1..5}; do curl -sSf http://localhost:8081/actuator/health | grep 'UP' && break || (echo 'Health check attempt $i failed' && sleep 10); done || (echo 'Startup failed after all retries' && tail -n 100 /home/%SSH_USER%/airline.log && exit 1)"
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "for i in 1 2 3 4 5; do curl -sSf http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"' && break || sleep 10; done || { echo 'Startup failed'; tail -n 100 /home/%SSH_USER%/airline.log; exit 1; }"
 
                         echo Deployment finished at %DATE% && time /t
                     """
