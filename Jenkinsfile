@@ -75,7 +75,7 @@ pipeline {
                         C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "tail -n 100 /home/%SSH_USER%/airline.log"
 
                         echo Verifying application health...
-                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "for i in {1..5}; do curl -sSf http://localhost:8081/actuator/health | grep 'UP' && break || (echo 'Health check attempt %i failed' && sleep 10); done || (echo 'Startup failed after all retries' && tail -n 100 /home/%SSH_USER%/airline.log && exit 1)"
+                        C:\\Windows\\System32\\OpenSSH\\ssh.exe -o ConnectTimeout=30 -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@13.220.119.113 "for i in {1..5}; do curl -sSf http://localhost:8081/actuator/health | grep 'UP' && break || (echo 'Health check attempt $i failed' && sleep 10); done || (echo 'Startup failed after all retries' && tail -n 100 /home/%SSH_USER%/airline.log && exit 1)"
 
                         echo Deployment finished at %DATE% && time /t
                     """
